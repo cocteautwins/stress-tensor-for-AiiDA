@@ -387,7 +387,7 @@ class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
     def get_kpoints(self):
 
         kpoints = KpointsData()
-        kpoints.set_kpoints_mesh([12, 12, 9])
+        kpoints.set_kpoints_mesh([24, 24, 24])
         kpoints.store()
 
         return kpoints
@@ -497,11 +497,7 @@ class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
 
         for ii in distorted_structure_index:
 
-            if ii % alat_steps != 0:
-                a = eps[ii % alat_steps - 1]
-            else :
-                a = eps[alat_steps - 1]
-
+            a = eps[ii % alat_steps - 1]
             i = def_list[int((ii - 1) / alat_steps)]
 
             M_Lagrange_eps = self.get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)

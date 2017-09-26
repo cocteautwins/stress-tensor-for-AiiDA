@@ -20,7 +20,7 @@ StructureData = DataFactory('structure')
 logger = aiidalogger.getChild('WorkflowStressTensor')
 
 ## ===============================================
-##    Workflow_LAPW_Stress_Tensor
+##    Workflow_LAPW_Stress_Tensor_Lagrange
 ## ===============================================
 
 class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
@@ -388,8 +388,16 @@ class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
             'groundstate': {
                 'xctype': 'GGA_PBE',
                 'gmaxvr': '30.0',
-                'rgkmax': '10.0',
-                'nosym': 'true',
+                'rgkmax': '12.0',
+                'epsengy':'1d-7',
+                'epspot':'1d-4',
+                'epschg':'1d-7',
+                'swidth':'0.0005',
+                'lmaxmat':'12',
+                'lmaxapw':'12',
+                'lmaxvr':'12',
+                'SymmetricKineticEnergy':'true',
+                'ValenceRelativity':'iora*',
             }}).store()
 
         return parameters
@@ -397,7 +405,7 @@ class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
     def get_kpoints(self):
 
         kpoints = KpointsData()
-        kpoints.set_kpoints_mesh([4, 4, 4])
+        kpoints.set_kpoints_mesh([8, 8, 8])
         kpoints.store()
 
         return kpoints

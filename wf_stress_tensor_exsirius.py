@@ -298,11 +298,11 @@ class Workflow_ExSIRIUS_stress_tensor(Workflow):
 
         #%!%!%--- Triclinic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
         if (LC == 'N'):
-            S[0,0] = (A1[0] + 2.* A1[2])/3.
-            S[1,1] = (A1[0] + 2.* A1[1])/3.
-            S[2,2] = (A1[0] - 2.*(A1[1] + A1[2]))/3.
-            S[1,2] = A1[3]/2.
-            S[0,2] = A1[4]/2.
+            S[0,0] = (A1[0] + 2.* A1[2])/3.,
+            S[1,1] = (A1[0] + 2.* A1[1])/3.,
+            S[2,2] = (A1[0] - 2.*(A1[1] + A1[2]))/3.,
+            S[1,2] = A1[3]/2.,
+            S[0,2] = A1[4]/2.,
             S[0,1] = A1[5]/2.
         #--------------------------------------------------------------------------------------------------
 
@@ -352,7 +352,6 @@ class Workflow_ExSIRIUS_stress_tensor(Workflow):
 
         lapw_codename = params['lapw_codename']
         num_machines = params['num_machines']
-        num_threads_per_rank = params['num_mpiprocs_per_machine']
         max_wallclock_seconds = params['max_wallclock_seconds']
         lapwbasis_family = params['lapwbasis_family']
 
@@ -364,7 +363,6 @@ class Workflow_ExSIRIUS_stress_tensor(Workflow):
         calc = LAPWCalc(computer=computer)
         calc.set_max_wallclock_seconds(max_wallclock_seconds)
         calc.set_resources({"num_machines": num_machines})
-        calc.set_mpirun_extra_params(['-c', str(num_threads_per_rank)])
         calc.store()
 
         calc.use_code(code)

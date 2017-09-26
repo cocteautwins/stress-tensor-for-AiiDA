@@ -127,9 +127,7 @@ class WorkflowXTiO3_LAPW_STRESS_TENSOR(Workflow):
         starting_alat = params['starting_alat']
         alat_steps = params['alat_steps']
 
-        eps = np.linspace(-0.01, 0.01, alat_steps)
-        eps = eps[eps.nonzero()]
-        a_sweep = starting_alat * (np.ones((alat_steps-1,)) + eps)
+        a_sweep = np.linspace(starting_alat * 0.998, starting_alat * 1.002, alat_steps).tolist()
 
         aiidalogger.info("Storing a_sweep as " + str(a_sweep))
         self.add_attribute('a_sweep', a_sweep)
@@ -161,7 +159,9 @@ class WorkflowXTiO3_LAPW_STRESS_TENSOR(Workflow):
 
         # Calculate results
         #-----------------------------------------
-        s_calcs = eps
+        alat_steps = params['alat_steps']
+
+        s_calcs = np.linspace(-0.002, 0.002, alat_steps).tolist()
 
         e_calcs = [c.res.energy for c in start_calcs]
         v_calcs = [c.res.volume for c in start_calcs]
@@ -178,24 +178,12 @@ class WorkflowXTiO3_LAPW_STRESS_TENSOR(Workflow):
 
         s_pymatgen = s.get_pymatgen()
 
-        #import pymatgen as mg
-        #from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
+        import pymatgen as mg
+        from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-        #finder = SpacegroupAnalyzer(s_pymatgen)
+        finder = SpacegroupAnalyzer(s_pymatgen)
 
-        #SGN = finder.get_space_group_number()
-
-        SGN = s_pymatgen.get_space_group_info()[1]
-
-        import spglib
-
-        slatt = s.cell
-        spos = np.squeeze(np.asarray(list(np.matrix(s.cell).T.I * np.matrix(x.position).T for x in s.sites)))
-        snum = [1,] * len(s.sites)
-        snum = np.ones(len(s.sites))
-        scell = (slatt, spos, snum)
-        SGN = int(spglib.get_symmetry_dataset(scell)["number"])
-
+        SGN = finder.get_space_group_number()
 
 #%!%!%--- Classify the Space-Group Number ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!
         if (1 <= SGN and SGN <= 2):      # Triclinic

@@ -12,7 +12,7 @@ __license__ = "MIT license, see LICENSE.txt file."
 __version__ = "0.7.0"
 __authors__ = "The AiiDA team."
 
-UpfData = DataFactory('upf')
+LapwbasisData = DataFactory('lapwbasis')
 ParameterData = DataFactory('parameter')
 KpointsData = DataFactory('array.kpoints')
 StructureData = DataFactory('structure')
@@ -20,13 +20,13 @@ StructureData = DataFactory('structure')
 logger = aiidalogger.getChild('WorkflowStressTensor')
 
 ## ===============================================
-##    Workflow_PW_Stress_Tensor_Lagrange
+##    Workflow_LAPW_Stress_Tensor
 ## ===============================================
 
-class Workflow_PW_stress_tensor_Lagrange(Workflow):
+class Workflow_LAPW_stress_tensor_SLagrange(Workflow):
     def __init__(self, **kwargs):
 
-        super(Workflow_PW_stress_tensor_Lagrange, self).__init__(**kwargs)
+        super(Workflow_LAPW_stress_tensor_SLagrange, self).__init__(**kwargs)
 
     ## ===============================================
     ##    Structure generators
@@ -52,7 +52,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         return s
 
-    def get_Lagrange_distorted_structure(self, structure_id, M_Lagrange_eps):
+    def get_Lagrange_distorted_structure(self, structure_id, M_SLagrange_eps):
 
         import numpy as np
 
@@ -60,10 +60,9 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         one = np.identity(3)
 
-        deform = (np.dot(M_Lagrange_eps.T, M_Lagrange_eps) - one) / 2.
+        #deform = (np.dot(M_Lagrange_eps.T, M_Lagrange_eps) - one) / 2.
 
-        #distorted_cell = np.dot((deform + one) , s0.cell)
-        distorted_cell = np.dot(s0.cell, (deform + one))
+        distorted_cell = np.dot(M_SLagrange_eps, s0.cell)
 
         s = StructureData(cell=distorted_cell)
 
@@ -77,7 +76,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         return s
 
-    def get_Lagrange_distorted_index(self, structure_id, LC):
+    def get_distorted_index(self, structure_id, LC):
 
         import numpy as np
 
@@ -103,12 +102,12 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
             if (s0.cell_angles[1] != 90): unique_axis == 'b'
             if (s0.cell_angles[2] != 90): unique_axis == 'c'
 
-            if (unique_axis == 'a'): def_list = ['1','2','3','6']
+            if (unique_axis == 'a'): def_list = ['1','2','3','4']
             if (unique_axis == 'b'): def_list = ['1','2','3','5']
-            if (unique_axis == 'c'): def_list = ['1','2','3','4']
+            if (unique_axis == 'c'): def_list = ['1','2','3','6']
 
         if (LC == 'N'):
-            def_list = ['1','2','3','6','5','4']
+            def_list = ['1','2','3','4','5','6']
 
         return def_list
 
@@ -180,6 +179,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         return M_eps
 
+
     def get_Lagrange_strain_matrix(self, eps=0.0, def_mtx_index='1'):
 
         import numpy as np
@@ -212,6 +212,41 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
         M_Lagrange_eps = np.array(def_mtx_dic[def_mtx_index])
 
         return M_Lagrange_eps
+
+
+    def get_SLagrange_strain_matrix(self, eps=0.0, def_mtx_index='1'):
+
+        import numpy as np
+
+        def_mtx_dic = {                                       \
+        '1' : [[1.+eps      , 0.          , 0.             ],
+               [0.          , 1.          , 0.             ],
+               [0.          , 0.          , 1.             ]],\
+
+        '2' : [[ 1.         , 0.          , 0.             ],
+               [ 0.         , 1.+eps      , 0.             ],
+               [ 0.         , 0.          , 1.             ]],\
+
+        '3' : [[ 1.         , 0.          , 0.             ],
+               [ 0.         , 1.          , 0.             ],
+               [ 0.         , 0.          , 1.+eps         ]],\
+
+        '4' : [[ 1.          , eps/2.       , 0.           ],
+               [ eps/2.      , 1.           , 0.           ],
+               [ 0.          , 0.           , 1.           ]],\
+
+        '5' : [[ 1.          , 0.           , eps/2.       ],
+               [ 0.          , 1.           , 0.           ],
+               [ eps/2.      , 0.           , 1.           ]],\
+
+        '6' : [[ 1.          , 0.           , 0.           ],
+               [ 0.          , 1.           , eps/2.       ],
+               [ 0.          , eps/2.       , 1.           ]]}
+
+        M_SLagrange_eps = np.array(def_mtx_dic[def_mtx_index])
+
+        return M_SLagrange_eps
+
 
     ## ===============================================
     ##    Space group number for structure 
@@ -315,7 +350,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
         #%!%!%--- Cubic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
         if (LC == 'CI' or \
             LC == 'CII'):
-            S[0,0] = A1[0]
+            S[0,0] = A1[0]/3.
             S[1,1] = S[0,0]
             S[2,2] = S[0,0]
         #--------------------------------------------------------------------------------------------------
@@ -327,42 +362,50 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
             LC == 'RII'or \
             LC == 'TI' or \
             LC == 'TII'):
-            S[0,0] = A1[0]
+            S[0,0] = (A1[0] - 1.*A1[1])/3.
             S[1,1] = S[0,0]
-            S[2,2] = A1[1]
+            S[2,2] = (A1[0] + 2.*A1[1])/3.
         #--------------------------------------------------------------------------------------------------
 
         #%!%!%--- Orthorhombic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!
         if (LC == 'O'):
-            S[0,0] = A1[0]
-            S[1,1] = A1[1]
-            S[2,2] = A1[2]
+            S[0,0] = (A1[0] - 2.*A1[1] - 2.*A1[2])/3.
+            S[1,1] = (A1[0] + 2.*A1[1])/3.
+            S[2,2] = (A1[0] + 2.*A1[2])/3.
         #--------------------------------------------------------------------------------------------------
 
         #%!%!%--- Monoclinic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!
         if (LC == 'M'):
-            S[0,0] = A1[0]
-            S[1,1] = A1[1]
-            S[2,2] = A1[2]
+            S[0,0] = (A1[0] - 2.*A1[1] - 2.*A1[2])/3.
+            S[1,1] = (A1[0] + 2.*A1[1])/3.
+            S[2,2] = (A1[0] + 2.*A1[2])/3.
 
             if (s0.cell_angles[0] != 90): unique_axis == 'a'
             if (s0.cell_angles[1] != 90): unique_axis == 'b'
             if (s0.cell_angles[2] != 90): unique_axis == 'c'
 
-            if (unique_axis == 'a'): S[1,2] = A1[3]
-            if (unique_axis == 'b'): S[0,2] = A1[3]
-            if (unique_axis == 'c'): S[0,1] = A1[3]
+            if (unique_axis == 'a'): S[1,2] = A1[3]/2.
+            if (unique_axis == 'b'): S[0,2] = A1[3]/2.
+            if (unique_axis == 'c'): S[0,1] = A1[3]/2.
         #--------------------------------------------------------------------------------------------------
 
         #%!%!%--- Triclinic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
         if (LC == 'N'):
-            S[0,0] = A1[0]
-            S[1,1] = A1[1]
-            S[2,2] = A1[2]
-            S[1,2] = A1[3]
-            S[0,2] = A1[4]
-            S[0,1] = A1[5]
+            S[0,0] = (A1[0] + 2.* A1[2])/3.
+            S[1,1] = (A1[0] + 2.* A1[1])/3.
+            S[2,2] = (A1[0] - 2.*(A1[1] + A1[2]))/3.
+            S[1,2] = A1[3]/2.
+            S[0,2] = A1[4]/2.
+            S[0,1] = A1[5]/2.
         #--------------------------------------------------------------------------------------------------
+
+        S[0,0] = A1[0]
+        S[1,1] = A1[1]
+        S[2,2] = A1[2]
+        S[1,2] = A1[3]
+        S[0,2] = A1[4]
+        S[0,1] = A1[5]
+
 
         for i in range(2):
             for j in range(i+1, 3):
@@ -373,22 +416,14 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         return S
 
-    def get_pw_parameters(self):
+    def get_lapw_parameters(self):
 
         parameters = ParameterData(dict={
-            'CONTROL': {
-                'calculation': 'scf',
-                'restart_mode': 'from_scratch',
-                'wf_collect': True,
-                'tprnfor': True,
-                'tstress': True,
-            },
-            'SYSTEM': {
-                'ecutwfc': 80.,
-                'ecutrho': 640.,
-            },
-            'ELECTRONS': {
-                'conv_thr': 1.e-10,
+            'groundstate': {
+                'xctype': 'GGA_PBE',
+                'gmaxvr': '30.0',
+                'rgkmax': '10.0',
+                'nosym': 'true',
             }}).store()
 
         return parameters
@@ -405,31 +440,31 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
     ##    Calculations generators
     ## ===============================================
 
-    def get_pw_calculation(self, pw_structure, pw_parameters, pw_kpoint):
+    def get_lapw_calculation(self, lapw_structure, lapw_parameters, lapw_kpoint):
 
         params = self.get_parameters()
 
-        pw_codename = params['pw_codename']
+        lapw_codename = params['lapw_codename']
         num_machines = params['num_machines']
         max_wallclock_seconds = params['max_wallclock_seconds']
-        pseudo_family = params['pseudo_family']
+        lapwbasis_family = params['lapwbasis_family']
 
-        code = Code.get_from_string(pw_codename)
+        code = Code.get_from_string(lapw_codename)
         computer = code.get_remote_computer()
 
-        QECalc = CalculationFactory('quantumespresso.pw')
+        LAPWCalc = CalculationFactory('exciting.exciting')
 
-        calc = QECalc(computer=computer)
+        calc = LAPWCalc(computer=computer)
         calc.set_max_wallclock_seconds(max_wallclock_seconds)
         calc.set_resources({"num_machines": num_machines})
         calc.store()
 
         calc.use_code(code)
 
-        calc.use_structure(pw_structure)
-        calc.use_pseudos_from_family(pseudo_family)
-        calc.use_parameters(pw_parameters)
-        calc.use_kpoints(pw_kpoint)
+        calc.use_structure(lapw_structure)
+        calc.use_lapwbasis_from_family(lapwbasis_family)
+        calc.use_parameters(lapw_parameters)
+        calc.use_kpoints(lapw_kpoint)
 
         return calc
 
@@ -470,7 +505,6 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         aiidalogger.info("Storing eps as " + str(eps))
         self.add_attribute('eps', eps)
-        self.add_attribute('alat_steps', alat_steps)
 
         if use_symmetry:
            SGN = self.get_space_group_number(structure_id=structure_id)
@@ -486,42 +520,34 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
         # aiidalogger.info("Storing distorted_structure_index as " + str(distorted_structure_index))
         # self.add_attribute('distorted_structure_index', distorted_structure_index)
 
-        def_list = self.get_Lagrange_distorted_index(structure_id=structure_id, LC=LC)
-        self.add_attribute('def_list', def_list)
-
-        SCs = len(def_list)
-        self.add_attribute('SCs', SCs)
+        def_list = self.get_distorted_index(structure_id=structure_id, LC=LC)
 
         distorted_structure_index = []
         eps_index = 0
         for i in def_list:
             for a in eps:
+                distorted_structure_index.append(eps_index) 
+
+                # M_eps = self.get_strain_matrix(eps=a, def_mtx_index=i)
+
+                M_SLagrange_eps = self.get_SLagrange_strain_matrix(eps=a, def_mtx_index=i)
+                
+                distorted_structure = self.get_Lagrange_distorted_structure(structure_id=structure_id, M_SLagrange_eps=M_SLagrange_eps)
+
+                calc = self.get_lapw_calculation(distorted_structure,
+                                               self.get_lapw_parameters(),
+                                               self.get_kpoints())
+
+                self.attach_calculation(calc)
+
+                self.append_to_report("Preparing structure {0} with alat_strain {1} for SC {2}".format(x_material, a, i))
+                self.append_to_report("Distorted structure with index {0} has ID {1}".format(eps_index, distorted_structure.id))
+                self.append_to_report("Calculation with pk {0}".format(calc.id))
 
                 eps_index = eps_index + 1
 
-                distorted_structure_index.append(eps_index)
 
         self.add_attribute('distorted_structure_index', distorted_structure_index)
-
-
-        for ii in distorted_structure_index:
-
-            a = eps[ii % alat_steps - 1]
-            i = def_list[int((ii - 1) / alat_steps)]
-
-            M_Lagrange_eps = self.get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)
-
-            distorted_structure = self.get_Lagrange_distorted_structure(structure_id=structure_id, M_Lagrange_eps=M_Lagrange_eps)
-
-            calc = self.get_pw_calculation(distorted_structure,
-                                               self.get_pw_parameters(),
-                                               self.get_kpoints())
-
-            self.attach_calculation(calc)
-
-            self.append_to_report("Preparing structure {0} with alat_strain {1} for SC {2}".format(x_material, a, i))
-            self.append_to_report("Distorted structure with index {0} has ID {1}".format(ii, distorted_structure.id))
-            self.append_to_report("Calculation with pk {0}".format(calc.id))
 
         self.next(self.analyze)
 
@@ -543,14 +569,8 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
         Tokbar = _e/(1e8*angstrom**3)    # eV/[\AA]^3 to kbar
         #__________________________________________________________________________________________________
 
-        alat_steps = self.get_attribute("alat_steps")
         eps = self.get_attribute("eps")
         distorted_structure_index = self.get_attribute("distorted_structure_index")
-
-        #for i in range(len(eps)):
-        #    self.append_to_report(" simulated with strain =" + ", e=" + str(eps[i]))
-
-        def_list = self.get_attribute("def_list")
 
         params = self.get_parameters()
         structure_id = params['structure_id']        
@@ -568,29 +588,25 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         e_calcs = zip(*sorted(zip(distorted_structure_index, e_calcs)))[1]
 
-        e_calcs_correct = e_calcs[::-1]
-
         #  Add to report
         #-----------------------------------------
         for i in range(len(distorted_structure_index)):
-            self.append_to_report(x_material + " simulated with strain =" + str(distorted_structure_index[i]) + ", e=" + str(e_calcs_correct[i]))
+            self.append_to_report(x_material + " simulated with strain =" + str(distorted_structure_index[i]) + ", e=" + str(e_calcs[i]))
 
         #  Obtain stress tensor by polyfit
         #-----------------------------------------
-        #alat_steps = 5
-        #SCs = int(len(distorted_structure_index) / alat_steps)
-
-        SCs = self.get_attribute("SCs")
+        alat_steps = 5
+        SCs = int(len(distorted_structure_index) / alat_steps)
         A1 = []
-        energy = []
+
         order = 3
         #eps = np.linspace(-0.008, 0.008, alat_steps).tolist()
 
-        for i in range(SCs):
-            energy = e_calcs_correct[i*alat_steps:(i+1)*alat_steps]
+        for i in range(SCs)[::-1]:
+            energy = e_calcs[i*alat_steps:(i+1)*alat_steps] 
             coeffs = np.polyfit(eps, energy, order)
             A1.append(coeffs[order-1]*ToGPa)
- 
+            
             #lsq_coeffs, ier = lsq_fit(energy, eps)
             #A1.append(lsq_coeffs[order-1]*ToGPa)
 

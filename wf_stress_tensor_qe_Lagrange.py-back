@@ -382,13 +382,23 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
                 'wf_collect': True,
                 'tprnfor': True,
                 'tstress': True,
+                'verbosity': 'high',
+                'iprint': 100,
+                'forc_conv_thr': 0.001,
             },
             'SYSTEM': {
                 'ecutwfc': 80.,
                 'ecutrho': 640.,
+                'nosym': True,
+                'occupations': 'smearing',
+                'smearing': 'gaussian',
+                'degauss': 0.02,
             },
             'ELECTRONS': {
                 'conv_thr': 1.e-10,
+                'diago_thr_init': 1.e-12,
+                'diagonalization': 'david',
+                'mixing_beta': 0.7,
             }}).store()
 
         return parameters
@@ -494,34 +504,67 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         distorted_structure_index = []
         eps_index = 0
+        calc_index = []
+
+       # for i in def_list:
+       #     for a in eps:
+
+       #         eps_index = eps_index + 1
+
+       #         distorted_structure_index.append(eps_index)
+
+       # self.add_attribute('distorted_structure_index', distorted_structure_index)
+
+
+       # for ii in distorted_structure_index:
+
+       #     a = eps[ii % alat_steps - 1]
+       #     i = def_list[int((ii - 1) / alat_steps)]
+
+       #     M_Lagrange_eps = self.get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)
+
+       #     distorted_structure = self.get_Lagrange_distorted_structure(structure_id=structure_id, M_Lagrange_eps=M_Lagrange_eps)
+
+       #     calc = self.get_pw_calculation(distorted_structure,
+       #                                        self.get_pw_parameters(),
+       #                                        self.get_kpoints())
+
+       #     self.attach_calculation(calc)
+
+       #     self.append_to_report("Preparing structure {0} with alat_strain {1} for SC {2}".format(x_material, a, i))
+       #     self.append_to_report("Distorted structure with index {0} has ID {1}".format(ii, distorted_structure.id))
+       #     self.append_to_report("Calculation with pk {0}".format(calc.id))
+
+       # self.add_attribute('distorted_structure_index', distorted_structure_index)
+
+
         for i in def_list:
             for a in eps:
-
                 eps_index = eps_index + 1
-
                 distorted_structure_index.append(eps_index)
 
-        self.add_attribute('distorted_structure_index', distorted_structure_index)
+                # M_eps = self.get_strain_matrix(eps=a, def_mtx_index=i)
 
+                M_Lagrange_eps = self.get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)
 
-        for ii in distorted_structure_index:
+                self.append_to_report("Preparing structure {0} with alat_strain {1} for SC {2}".format(x_material, a, i))
 
-            a = eps[ii % alat_steps - 1]
-            i = def_list[int((ii - 1) / alat_steps)]
+                distorted_structure = self.get_Lagrange_distorted_structure(structure_id=structure_id, M_Lagrange_eps=M_Lagrange_eps)
 
-            M_Lagrange_eps = self.get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)
-
-            distorted_structure = self.get_Lagrange_distorted_structure(structure_id=structure_id, M_Lagrange_eps=M_Lagrange_eps)
-
-            calc = self.get_pw_calculation(distorted_structure,
+                calc = self.get_pw_calculation(distorted_structure,
                                                self.get_pw_parameters(),
                                                self.get_kpoints())
 
-            self.attach_calculation(calc)
+                self.attach_calculation(calc)
 
-            self.append_to_report("Preparing structure {0} with alat_strain {1} for SC {2}".format(x_material, a, i))
-            self.append_to_report("Distorted structure with index {0} has ID {1}".format(ii, distorted_structure.id))
-            self.append_to_report("Calculation with pk {0}".format(calc.id))
+                self.append_to_report("Distorted structure with index {0} has ID {1}".format(eps_index, distorted_structure.id))
+                self.append_to_report("Calculation with pk {0}".format(calc.id))
+
+                calc_index.append(calc.id)
+
+        self.add_attribute('distorted_structure_index', distorted_structure_index)
+
+        self.add_attribute('calc_index', calc_index)
 
         self.next(self.analyze)
 
@@ -546,6 +589,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
         alat_steps = self.get_attribute("alat_steps")
         eps = self.get_attribute("eps")
         distorted_structure_index = self.get_attribute("distorted_structure_index")
+        calc_index = self.get_attribute("calc_index")
 
         #for i in range(len(eps)):
         #    self.append_to_report(" simulated with strain =" + ", e=" + str(eps[i]))
@@ -570,10 +614,18 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
 
         e_calcs_correct = e_calcs[::-1]
 
+        #e_calcs = zip(*sorted(zip(calc_index, e_calcs)))[1]
+
+
         #  Add to report
         #-----------------------------------------
-        for i in range(len(distorted_structure_index)):
-            self.append_to_report(x_material + " simulated with strain =" + str(distorted_structure_index[i]) + ", e=" + str(e_calcs_correct[i]))
+        #for i in range(len(distorted_structure_index)):
+        #    self.append_to_report(x_material + " simulated with strain =" + str(distorted_structure_index[i]) + ", e=" + str(e_calcs_correct[i]))
+
+        for i in range(len(calc_index)):
+            self.append_to_report(x_material + " simulated with PK =" + str(calc_index[i]) + ", e=" + str(e_calcs_correct[i]))
+
+
 
         #  Obtain stress tensor by polyfit
         #-----------------------------------------

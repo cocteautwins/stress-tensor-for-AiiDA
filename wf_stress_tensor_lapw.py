@@ -321,8 +321,7 @@ class Workflow_LAPW_stress_tensor(Workflow):
             'groundstate': {
                 'xctype': 'GGA_PBE',
                 'gmaxvr': '30.0',
-                'rgkmax': '12.0',
-                'nosym': 'true',
+                'rgkmax': '10.0',
             }}).store()
 
         return parameters
@@ -330,7 +329,7 @@ class Workflow_LAPW_stress_tensor(Workflow):
     def get_kpoints(self):
 
         kpoints = KpointsData()
-        kpoints.set_kpoints_mesh([12, 12, 12])
+        kpoints.set_kpoints_mesh([8, 8, 8])
         kpoints.store()
 
         return kpoints
@@ -498,7 +497,7 @@ class Workflow_LAPW_stress_tensor(Workflow):
             coeffs = np.polyfit(eps, energy, order)
             A1.append(coeffs[order-1]*ToGPa)
             
-            #lsq_coeffs, ier = lsq_fit(energy, eps)
+            #lsq_coeffs, ier = lsq_fit(e_calcs, eps)
             #A1.append(lsq_coeffs[order-1]*ToGPa)
 
         A1 = np.array(A1)
@@ -529,12 +528,12 @@ def lsq_fit(e, v):
     v = np.array(v)
 
     # Fit with parabola for first guess
-    # a, b, c, d = pylab.polyfit(v , e, 3)
+    a, b, c, d = pylab.polyfit(v , e, 3)
 
-    a = 1.
-    b = 2.
-    c = 3.
-    d = 4.
+    #a = 1
+    #b = 2
+    #c = 3
+    #d = 4
 
     def fitfunc(strain, parameters):
         a = parameters[0]
