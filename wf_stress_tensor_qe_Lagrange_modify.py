@@ -32,50 +32,6 @@ class Workflow_PW_stress_tensor_MLagrange(Workflow):
     ##    Structure generators
     ## ===============================================
 
-    def get_distorted_structure(self, structure_id, M_eps):
-
-        import numpy as np
-
-        s0 = load_node(structure_id)
-
-        distorted_cell = np.dot(s0.cell, M_eps)
-
-        s = StructureData(cell=distorted_cell)
-        
-        for site in s0.sites:
-            kind_name = site.kind_name
-            frac_coor = np.squeeze(np.asarray(list(np.matrix(s0.cell).T.I * np.matrix(site.position).T)))
-            distorted_position = np.squeeze(np.asarray(list(np.matrix(s.cell).T * np.matrix(frac_coor).T)))
-            s.append_atom(position=distorted_position, symbols=kind_name)
-
-        s.store()
-
-        return s
-
-    def get_Lagrange_distorted_structure(self, structure_id, M_Lagrange_eps):
-
-        import numpy as np
-
-        s0 = load_node(structure_id)
-
-        one = np.identity(3)
-
-        deform = (np.dot(M_Lagrange_eps.T, M_Lagrange_eps) - one) / 2.
-
-        distorted_cell = np.dot((deform + one) , s0.cell)
-
-        s = StructureData(cell=distorted_cell)
-
-        for site in s0.sites:
-            kind_name = site.kind_name
-            frac_coor = np.squeeze(np.asarray(list(np.matrix(s0.cell).T.I * np.matrix(site.position).T)))
-            distorted_position = np.squeeze(np.asarray(list(np.matrix(s.cell).T * np.matrix(frac_coor).T)))
-            s.append_atom(position=distorted_position, symbols=kind_name)
-
-        s.store()
-
-        return s
-
     def get_MLagrange_distorted_structure(self, structure_id, M_MLagrange_eps):
 
         import numpy as np
@@ -134,140 +90,6 @@ class Workflow_PW_stress_tensor_MLagrange(Workflow):
 
         return def_list
 
-    def def_strain_dict(self, def_mtx_index='1'):
-
-        def_str_dic = {             \
-        '1':
-        '\n[ 1+eps  0      0     ]' \
-        '\n[ 0      1+eps  0     ]' \
-        '\n[ 0      0      1+eps ]',\
-        
-        '2':
-        '\n[(1+eps)^-.5   0           0          ]' \
-        '\n[ 0           (1+eps)^+1.  0          ]' \
-        '\n[ 0            0          (1+eps)^-.5 ]',\
-        
-        '3':
-        '\n[(1+eps)^-.5   0           0          ]' \
-        '\n[ 0           (1+eps)^-.5  0          ]' \
-        '\n[ 0            0          (1+eps)^+1. ]',\
-        
-        '4':
-        '\n[ 1/(1-eps^2)  0           0          ]' \
-        '\n[ 0            1          eps         ]' \
-        '\n[ 0           eps          1          ]',\
-        
-        '5':
-        '\n[ 1           0           eps         ]' \
-        '\n[ 0           1/(1-eps^2)  0          ]' \
-        '\n[eps          0            1          ]',\
-        
-        '6':
-        '\n[ 1          eps           0          ]' \
-        '\n[eps          1            0          ]' \
-        '\n[ 0           0            1/(1-eps^2)]'}
-        
-        return def_str_dict[def_mtx_index]
-
-    def get_strain_matrix(self, eps=0.0, def_mtx_index='1'):
-
-        import numpy as np
-
-        def_mtx_dic = {                                       \
-        '1' : [[1.+eps      , 0.          , 0.             ],
-               [0.          , 1.+eps      , 0.             ],
-               [0.          , 0.          , 1+eps          ]],\
-
-        '2' : [[(1+eps)**-.5, 0.          , 0.             ],
-               [ 0.         , 1.+eps      , 0.             ],
-               [ 0.         , 0.          ,(1+eps)**-.5    ]],\
-
-        '3' : [[(1+eps)**-.5, 0.          , 0.             ],
-               [ 0.         , (1+eps)**-.5, 0.             ],
-               [ 0.         , 0.          , 1.+eps         ]],\
-
-        '4' : [[1./(1-eps**2), 0.           , 0.           ],
-               [ 0.          , 1.           ,eps           ],
-               [ 0.          ,eps           , 1.           ]],\
-
-        '5' : [[ 1.          , 0.           ,eps           ],
-               [ 0.          , 1./(1-eps**2), 0.           ],
-               [eps          , 0.           , 1.           ]],\
-
-        '6' : [[ 1.          ,eps           , 0.           ],
-               [eps          , 1.           , 0.           ],
-               [ 0.          , 0.           , 1./(1-eps**2)]]}
-
-        M_eps = np.array(def_mtx_dic[def_mtx_index])
-
-        return M_eps
-
-    def get_Lagrange_strain_matrix(self, eps=0.0, def_mtx_index='1'):
-
-        import numpy as np
-
-        def_mtx_dic = {                                       \
-        '1' : [[1.+eps      , 0.          , 0.             ],
-               [0.          , 1.          , 0.             ],
-               [0.          , 0.          , 1.             ]],\
-
-        '2' : [[ 1.         , 0.          , 0.             ],
-               [ 0.         , 1.+eps      , 0.             ],
-               [ 0.         , 0.          , 1.             ]],\
-
-        '3' : [[ 1.         , 0.          , 0.             ],
-               [ 0.         , 1.          , 0.             ],
-               [ 0.         , 0.          , 1.+eps         ]],\
-
-        '4' : [[ 1.          , eps          , 0.           ],
-               [ 0.          , 1.           , 0.           ],
-               [ 0.          , 0.           , 1.           ]],\
-
-        '5' : [[ 1.          , 0.           , eps          ],
-               [ 0.          , 1.           , 0.           ],
-               [ 0.          , 0.           , 1.           ]],\
-
-        '6' : [[ 1.          , 0.           , 0.           ],
-               [ 0.          , 1.           , eps           ],
-               [ 0.          , 0.           , 1.           ]]}
-
-        M_Lagrange_eps = np.array(def_mtx_dic[def_mtx_index])
-
-        return M_Lagrange_eps
-
-    def get_SLagrange_strain_matrix(self, eps=0.0, def_mtx_index='1'):
-
-        import numpy as np
-
-        def_mtx_dic = {                                       \
-        '1' : [[1.+eps      , 0.          , 0.             ],
-               [0.          , 1.          , 0.             ],
-               [0.          , 0.          , 1.             ]],\
-
-        '2' : [[ 1.         , 0.          , 0.             ],
-               [ 0.         , 1.+eps      , 0.             ],
-               [ 0.         , 0.          , 1.             ]],\
-
-        '3' : [[ 1.         , 0.          , 0.             ],
-               [ 0.         , 1.          , 0.             ],
-               [ 0.         , 0.          , 1.+eps         ]],\
-
-        '4' : [[ 1.          , eps/2.       , 0.           ],
-               [ eps/2.      , 1.           , 0.           ],
-               [ 0.          , 0.           , 1.           ]],\
-
-        '5' : [[ 1.          , 0.           , eps/2.       ],
-               [ 0.          , 1.           , 0.           ],
-               [ eps/2.      , 0.           , 1.           ]],\
-
-        '6' : [[ 1.          , 0.           , 0.           ],
-               [ 0.          , 1.           , eps/2.       ],
-               [ 0.          , eps/2.       , 1.           ]]}
-
-        M_SLagrange_eps = np.array(def_mtx_dic[def_mtx_index])
-
-        return M_SLagrange_eps
-
     def get_MLagrange_strain_matrix(self, eps=0.0, def_mtx_index='1'):
 
         import numpy as np
@@ -286,15 +108,15 @@ class Workflow_PW_stress_tensor_MLagrange(Workflow):
                [ 0.         , 0.          , eps            ]],\
 
         '4' : [[ 0.          , 0.           , 0.           ],
-               [ 0.          , 0.           , eps/2.       ],
-               [ 0.          , eps/2.       , 0.           ]],\
+               [ 0.          , 0.           , eps          ],
+               [ 0.          , eps          , 0.           ]],\
 
-        '5' : [[ 0.          , 0.           , eps/2.       ],
+        '5' : [[ 0.          , 0.           , eps          ],
                [ 0.          , 0.           , 0.           ],
-               [ eps/2.      , 0.           , 0.           ]],\
+               [ eps         , 0.           , 0.           ]],\
 
-        '6' : [[ 0.          , eps/2.       , 0.           ],
-               [ eps/2.      , 0.           , 0.           ],
+        '6' : [[ 0.          , eps          , 0.           ],
+               [ eps         , 0.           , 0.           ],
                [ 0.          , 0.           , 0.           ]]}
 
         eta_matrix = np.mat(def_mtx_dic[def_mtx_index])
@@ -495,7 +317,7 @@ class Workflow_PW_stress_tensor_MLagrange(Workflow):
     def get_kpoints(self):
 
         kpoints = KpointsData()
-        kpoints.set_kpoints_mesh([4, 4, 4])
+        kpoints.set_kpoints_mesh([24, 24, 24])
         kpoints.store()
 
         return kpoints
