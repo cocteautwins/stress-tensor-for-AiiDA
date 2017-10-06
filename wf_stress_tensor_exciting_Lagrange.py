@@ -32,26 +32,6 @@ class Workflow_LAPW_stress_tensor_Lagrange(Workflow):
     ##    Structure generators
     ## ===============================================
 
-    def get_distorted_structure(self, structure_id, M_eps):
-
-        import numpy as np
-
-        s0 = load_node(structure_id)
-
-        distorted_cell = np.dot(s0.cell, M_eps)
-
-        s = StructureData(cell=distorted_cell)
-        
-        for site in s0.sites:
-            kind_name = site.kind_name
-            frac_coor = np.squeeze(np.asarray(list(np.matrix(s0.cell).T.I * np.matrix(site.position).T)))
-            distorted_position = np.squeeze(np.asarray(list(np.matrix(s.cell).T * np.matrix(frac_coor).T)))
-            s.append_atom(position=distorted_position, symbols=kind_name)
-
-        s.store()
-
-        return s
-
     def get_Lagrange_distorted_structure(self, structure_id, M_Lagrange_eps):
 
         import numpy as np
