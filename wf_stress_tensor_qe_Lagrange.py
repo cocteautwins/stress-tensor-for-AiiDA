@@ -376,7 +376,7 @@ class Workflow_PW_stress_tensor_Lagrange(Workflow):
     def get_kpoints(self):
 
         kpoints = KpointsData()
-        kpoints.set_kpoints_mesh([4, 4, 4])
+        kpoints.set_kpoints_mesh([24, 24, 24])
         kpoints.store()
 
         return kpoints
