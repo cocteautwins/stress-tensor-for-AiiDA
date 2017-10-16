@@ -20,7 +20,7 @@ def scaled_structure(structure, scale):
         new_structure.append_atom(position=numpy.array(site.position)*float(scale), \
                                   symbols=structure.get_kind(site.kind_name).symbol,\
                                   name=site.kind_name)
-    new_structure.label = 'auxiliary structure for EoS'
+    new_structure.label = 'auxiliary structure for stress tensor'
     new_structure.description = "created from the original structure with PK=%i, "\
                                 "lattice constant scaling: %f"%(structure.pk, float(scale))
 
@@ -77,10 +77,10 @@ def get_lapwbasis(structure, family_name):
 
     return lapw_files
     
-class EoS(WorkChain):
+class Stress_Tensor(WorkChain):
     @classmethod
     def define(cls, spec):
-        super(EoS, cls).define(spec)
+        super(Stress_Tensor, cls).define(spec)
         spec.outline(cls.submit_jobs, cls.post_process)
 
     def submit_jobs(self):
@@ -88,7 +88,7 @@ class EoS(WorkChain):
 
         grp, created = Group.get_or_create(name=self.inputs.group)
         grp.add_nodes([self.calc])
-        print("EoS PK: %i"%self.calc.pk)
+        print("stress tensor PK: %i"%self.calc.pk)
         
         # get calculation class
         C = CalculationFactory(self.inputs.code.get_input_plugin_name())
@@ -151,7 +151,7 @@ class EoS(WorkChain):
 @click.argument('structure_pk', type=int, required=True, nargs=-1)
 @click.option('--code', type=str, help='code label', required=True)
 @click.option('--atomic_files', type=str, help='label for the atomic files dataset', required=False)
-@click.option('--group', type=str, help='label of the EoS workflow group', required=True)
+@click.option('--group', type=str, help='label of the stress tensor workflow group', required=True)
 @click.option('--partition', type=str, help='run on "cpu" or "gpu" partition', default='cpu')
 @click.option('--ranks_per_node', type=int, help='number of ranks to put on a single node', default=36)
 @click.option('--ranks_kp', type=int, help='number of ranks for k-point parallelization', default=1)
@@ -163,9 +163,9 @@ def run(structure_pk, code, atomic_files, group, partition, ranks_per_node, rank
     c = Code.get_from_string(code)
     if not atomic_files:
         if c.get_input_plugin_name() == 'quantumespresso.pw':
-            atomic_files = 'SSSP_acc_PBE_fixed'
+            atomic_files = 'SSSP_acc_PBE'
         if c.get_input_plugin_name() == 'exciting.exciting':
-            atomic_files = 'lapw_v1'
+            atomic_files = 'high_quality_lapw_species'
 
     # create k-point mesh
     k = List()
@@ -173,9 +173,9 @@ def run(structure_pk, code, atomic_files, group, partition, ranks_per_node, rank
     for spk in structure_pk:
         # load structure from PK
         structure = load_node(spk)
-        # create EoS workflow
-        eos = EoS()
-        eos.run(structure=structure,
+        # create stress tensor workflow
+        stress_tensor = Stress_Tensor()
+        stress_tensor.run(structure=structure,
                 code=c,
                 atomic_files=Str(atomic_files),
                 group=Str(group),

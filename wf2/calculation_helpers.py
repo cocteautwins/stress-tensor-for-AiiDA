@@ -79,16 +79,9 @@ def create_calculation_parameters(code, partition, num_ranks_per_node, num_ranks
 
     if code.get_input_plugin_name() == 'exciting.exciting':
         parameters = ParameterData(dict={'groundstate' : {'xctype' : 'GGA_PBE',
-                                         'swidth' : '0.001',
-                                         'beta0'  : '0.4',
-                                         'gmaxvr' : '20.0',
-                                         'rgkmax' : '7.0',
-                                         'lmaxmat' : '10',
-                                         'lmaxapw' : '10',
-                                         'lmaxvr'  : '10',
-                                         'fracinr' : '1d-12',
-                                         'maxscl'  : '40',
-                                         'nempty'  : '10'}})
+                                         'gmaxvr' : '30.0',
+                                         'rgkmax' : '12.0',
+                                         }})
         settings = ParameterData(dict={})
 
 
@@ -139,6 +132,260 @@ def scaled_structure(structure, scale):
                                 "lattice constant scaling: %f"%(structure.pk, scale)
 
     return new_structure
+
+def get_Lagrange_distorted_structure(structure_id, M_Lagrange_eps):
+
+    import numpy as np
+
+    s0 = load_node(structure_id)
+
+    one = np.identity(3)
+
+    deform = (np.dot(M_Lagrange_eps.T, M_Lagrange_eps) - one) / 2.
+
+    #distorted_cell = np.dot((deform + one) , s0.cell)
+    distorted_cell = np.dot(s0.cell, (deform + one))
+
+    s = StructureData(cell=distorted_cell)
+
+    for site in s0.sites:
+        kind_name = site.kind_name
+        frac_coor = np.squeeze(np.asarray(list(np.matrix(s0.cell).T.I * np.matrix(site.position).T)))
+        distorted_position = np.squeeze(np.asarray(list(np.matrix(s.cell).T * np.matrix(frac_coor).T)))
+        s.append_atom(position=distorted_position, symbols=kind_name)
+
+    s.store()
+
+    return s
+
+def get_Lagrange_distorted_index(structure_id, LC):
+
+    import numpy as np
+
+    s0 = load_node(structure_id)
+
+    if (LC == 'CI' or \
+        LC == 'CII'):
+        def_list = ['1']
+
+    if (LC == 'HI' or \
+        LC == 'HII'or \
+        LC == 'RI' or \
+        LC == 'RII'or \
+        LC == 'TI' or \
+        LC == 'TII'):
+        def_list = ['1','3']
+
+    if (LC == 'O'):
+        def_list = ['1','2','3']
+
+    if (LC == 'M'):
+        if (s0.cell_angles[0] != 90): unique_axis == 'a'
+        if (s0.cell_angles[1] != 90): unique_axis == 'b'
+        if (s0.cell_angles[2] != 90): unique_axis == 'c'
+
+        if (unique_axis == 'a'): def_list = ['1','2','3','6']
+        if (unique_axis == 'b'): def_list = ['1','2','3','5']
+        if (unique_axis == 'c'): def_list = ['1','2','3','4']
+
+    if (LC == 'N'):
+        def_list = ['1','2','3','6','5','4']
+
+     return def_list
+
+
+def get_Lagrange_strain_matrix(eps=0.0, def_mtx_index='1'):
+
+    import numpy as np
+
+    def_mtx_dic = {                                       \
+    '1' : [[1.+eps      , 0.          , 0.             ],
+           [0.          , 1.          , 0.             ],
+           [0.          , 0.          , 1.             ]],\
+
+    '2' : [[ 1.         , 0.          , 0.             ],
+           [ 0.         , 1.+eps      , 0.             ],
+           [ 0.         , 0.          , 1.             ]],\
+
+    '3' : [[ 1.         , 0.          , 0.             ],
+           [ 0.         , 1.          , 0.             ],
+           [ 0.         , 0.          , 1.+eps         ]],\
+
+    '4' : [[ 1.          , eps          , 0.           ],
+           [ 0.          , 1.           , 0.           ],
+           [ 0.          , 0.           , 1.           ]],\
+
+    '5' : [[ 1.          , 0.           , eps          ],
+           [ 0.          , 1.           , 0.           ],
+           [ 0.          , 0.           , 1.           ]],\
+
+    '6' : [[ 1.          , 0.           , 0.           ],
+           [ 0.          , 1.           , eps           ],
+           [ 0.          , 0.           , 1.           ]]}
+
+    M_Lagrange_eps = np.array(def_mtx_dic[def_mtx_index])
+
+    return M_Lagrange_eps
+
+## ===============================================
+##    Space group number for structure 
+##    spglib is needed
+## ===============================================
+
+def get_space_group_number(structure_id):
+
+    import numpy as np
+    import spglib
+
+    s0 = load_node(structure_id)
+    slatt = s0.cell
+    spos = np.squeeze(np.asarray(list(np.matrix(s0.cell).T.I * np.matrix(x.position).T for x in s0.sites)))
+    snum = np.ones(len(s0.sites))
+    scell = (slatt, spos, snum)
+    SGN = int(spglib.get_symmetry_dataset(scell)["number"])
+
+    return SGN
+
+## ===============================================
+##    Laue dictionary and
+##    Number of independent stress components for structure 
+## ===============================================
+
+def get_Laue_dict(space_group_number):
+
+    SGN = space_group_number
+
+    if (1 <= SGN and SGN <= 2):      # Triclinic
+        LC = 'N'
+        # SCs= 6
+
+    elif(3 <= SGN and SGN <= 15):    # Monoclinic
+        LC = 'M'
+        # SCs= 4
+
+    elif(16 <= SGN and SGN <= 74):   # Orthorhombic
+        LC = 'O'
+        # SCs= 3
+
+    elif(75 <= SGN and SGN <= 88):   # Tetragonal II
+        LC = 'TII'
+        # SCs= 2
+
+    elif(89 <= SGN and SGN <= 142):  # Tetragonal I
+        LC = 'TI'
+        # SCs= 2
+
+    elif(143 <= SGN and SGN <= 148): # Rhombohedral II 
+        LC = 'RII'
+        # SCs= 2
+
+    elif(149 <= SGN and SGN <= 167): # Rhombohedral I
+        LC = 'RI'
+        # SCs= 2
+
+    elif(168 <= SGN and SGN <= 176): # Hexagonal II
+        LC = 'HII'
+        # SCs= 2
+
+    elif(177 <= SGN and SGN <= 194): # Hexagonal I
+        LC = 'HI'
+        # SCs= 2
+
+    elif(195 <= SGN and SGN <= 206): # Cubic II
+        LC = 'CII'
+        # SCs= 1
+
+    elif(207 <= SGN and SGN <= 230): # Cubic I
+        LC = 'CI'
+        # SCs= 1
+
+    return LC
+
+def def_Laue_dict(LC):
+
+    Laue_dic = {            \
+    'CI' :'Cubic I'        ,\
+    'CII':'Cubic II'       ,\
+    'HI' :'Hexagonal I'    ,\
+    'HII':'Hexagonal II'   ,\
+    'RI' :'Rhombohedral I' ,\
+    'RII':'Rhombohedral II',\
+    'TI' :'Tetragonal I'   ,\
+    'TII':'Tetragonal II'  ,\
+    'O'  :'Orthorhombic'   ,\
+    'M'  :'Monoclinic'     ,\
+    'N'  :'Triclinic'}
+
+    return Laue_dict[LC]
+
+def get_stress_tensor_matrix(structure_id, LC, A1):
+
+    import numpy as np
+
+    s0 = load_node(structure_id)
+
+    S = np.zeros((3,3))
+
+    #%!%!%--- Cubic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
+    if (LC == 'CI' or \
+        LC == 'CII'):
+        S[0,0] = A1[0]
+        S[1,1] = S[0,0]
+        S[2,2] = S[0,0]
+    #--------------------------------------------------------------------------------------------------
+
+    #%!%!%--- Hexagonal, Rhombohedral, and Tetragonal structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
+    if (LC == 'HI' or \
+        LC == 'HII'or \
+        LC == 'RI' or \
+        LC == 'RII'or \
+        LC == 'TI' or \
+        LC == 'TII'):
+        S[0,0] = A1[0]
+        S[1,1] = S[0,0]
+        S[2,2] = A1[1]
+    #--------------------------------------------------------------------------------------------------
+
+    #%!%!%--- Orthorhombic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!
+    if (LC == 'O'):
+        S[0,0] = A1[0]
+        S[1,1] = A1[1]
+        S[2,2] = A1[2]
+    #--------------------------------------------------------------------------------------------------
+
+    #%!%!%--- Monoclinic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!
+    if (LC == 'M'):
+        S[0,0] = A1[0]
+        S[1,1] = A1[1]
+        S[2,2] = A1[2]
+
+        if (s0.cell_angles[0] != 90): unique_axis == 'a'
+        if (s0.cell_angles[1] != 90): unique_axis == 'b'
+        if (s0.cell_angles[2] != 90): unique_axis == 'c'
+
+        if (unique_axis == 'a'): S[1,2] = A1[3]
+        if (unique_axis == 'b'): S[0,2] = A1[3]
+        if (unique_axis == 'c'): S[0,1] = A1[3]
+    #--------------------------------------------------------------------------------------------------
+
+    #%!%!%--- Triclinic structures ---%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%!%
+    if (LC == 'N'):
+        S[0,0] = A1[0]
+        S[1,1] = A1[1]
+        S[2,2] = A1[2]
+        S[1,2] = A1[3]
+        S[0,2] = A1[4]
+        S[0,1] = A1[5]
+    #--------------------------------------------------------------------------------------------------
+
+    for i in range(2):
+        for j in range(i+1, 3):
+            S[j,i] = S[i,j]
+
+    V0 = load_node(structure_id).get_cell_volume()
+    S = S / V0
+
+     return S
 
 def submit_stress_tensor(**kwargs):
     # get code
