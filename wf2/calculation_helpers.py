@@ -407,11 +407,11 @@ def submit_stress_tensor(**kwargs):
     
     # generate k-points
     params['kpoints'] = KpointsData()
-    params['kpoints'].set_kpoints_mesh(kwargs.get('kmesh', [1, 1, 1]), offset=(0.0, 0.0, 0.0))
+    params['kpoints'].set_kpoints_mesh(kwargs.get('kmesh', [24, 24, 24]), offset=(0.0, 0.0, 0.0))
     params['atomic_files'] = kwargs['atomic_files']
     params['calculation_wallclock_seconds'] = kwargs.get('time_limit', 3600)
     params['structure'] = structure
-    params['num_points'] = 7
+    params['num_points'] = 5
     params['group'] = kwargs['group']
     params['kpoints'].store()
     params['calculation_parameters'].store()
@@ -428,11 +428,43 @@ def submit_stress_tensor(**kwargs):
 
     # volume scales from 0.94 to 1.06, alat scales as pow(1/3)
     scales = np.linspace(0.992, 1.008, num=params['num_points']).tolist()
+
+    eps = np.linspace(-0.008, 0.008, num=params['num_points']).tolist()
     #scales = np.linspace(0.99, 1.05, num=params['num_points']).tolist()
 
-    for scale in scales:
+    use_symmetry = .False.
 
-        structure_new = scaled_structure(structure, scale)
+    if use_symmetry:
+       SGN = get_space_group_number(structure_id=structure_id)
+    else:
+       SGN = 1
+
+    LC = self.get_Laue_dict(space_group_number=SGN)
+
+    def_list = get_Lagrange_distorted_index(structure_id=structure_id, LC=LC)
+
+    SCs = len(def_list)
+
+    alat_steps = params['num_points']
+
+    distorted_structure_index = []
+    eps_index = 0
+    for i in def_list:
+        for a in eps:
+
+            eps_index = eps_index + 1
+
+            distorted_structure_index.append(eps_index)
+
+    for ii in distorted_structure_index:
+
+        a = eps[ii % alat_steps - 1]
+        i = def_list[int((ii - 1) / alat_steps)]
+
+        M_Lagrange_eps = get_Lagrange_strain_matrix(eps=a, def_mtx_index=i)
+
+        structure_new = get_Lagrange_distorted_structure(structure_id=structure_id, M_Lagrange_eps=M_Lagrange_eps)
+
         structure_new.store()
         
         calc_label = 'gs_' + structure.get_formula() + '_' + code.label
